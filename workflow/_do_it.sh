@@ -1,6 +1,6 @@
 #!/bin/bash
 
-seed=42
+seed=40
 work_dir="/lus/eagle/projects/RECUP/twang/exalearn_stage2/"
 exe_dir="${work_dir}/executable/"
 exp_dir="${work_dir}/experiment/seed_${seed}/"
@@ -63,7 +63,7 @@ cd ${exp_dir}
    python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data trigonal ${nthread}
    python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data tetragonal ${nthread}
    echo "Logging: End study simulation and merge!"
-   
+  
    echo "Logging: Start training, phase 0"
    python ${exe_dir}/train_step1.py --device=gpu --data_dir=${data_dir}
    echo "Logging: End training phase 0"

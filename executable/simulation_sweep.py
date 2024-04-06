@@ -183,7 +183,7 @@ def create_all_samples(rank, size, sz_g,
 
     sz_dim2 = int(np.sqrt(sz_g))
     sz_a = int(sz_dim2 / size)
-    assert sz_a >= 2, "Each thread only has little a_grid to do, need different algorithm!"
+    assert sz_a >= 1, "Each thread only has little a_grid to do, need different algorithm!"
     diff = (a_max2 - a_min2) / (sz_a * size - 1)
     start_off = a_min2 + diff * sz_a * rank
     end_off   = a_min2 + diff * (sz_a * (rank + 1) - 1)

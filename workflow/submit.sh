@@ -1,9 +1,9 @@
 #!/bin/bash -l
 #PBS -l select=1:system=polaris
 #PBS -l place=scatter
-#PBS -l walltime=1:00:00
+#PBS -l walltime=04:30:00
 #PBS -l filesystems=home:grand:eagle
-#PBS -q debug
+#PBS -q preemptable
 #PBS -A RECUP
 
 source /home/twang3/useful_script/conda_exalearn.sh
@@ -33,7 +33,7 @@ nthread=32
 echo "Logging: Start base simulation and merge!"
 mpiexec -n ${nthread} --ppn ${nthread} --depth=1 --cpu-bind depth --env OMP_NUM_THREADS=1 --env OMP_PLACES=threads \
     python ${exe_dir}/simulation_sample.py \
-            6000 ${seed} \
+            30000 ${seed} \
             ${data_dir}/base/config/config_1001460_cubic.txt \
             ${data_dir}/base/config/config_1522004_trigonal.txt \
             ${data_dir}/base/config/config_1531431_tetragonal.txt
@@ -46,7 +46,7 @@ echo "Logging: End base simulation and merge"
 echo "Logging: Start test simulation and merge!"
 mpiexec -n ${nthread} --ppn ${nthread} --depth=1 --cpu-bind depth --env OMP_NUM_THREADS=1 --env OMP_PLACES=threads \
      python ${exe_dir}/simulation_sample.py \
-            2000 $((${seed} + 1)) \
+            10000 $((${seed} + 1)) \
             ${data_dir}/test/config/config_1001460_cubic.txt \
             ${data_dir}/test/config/config_1522004_trigonal.txt \
             ${data_dir}/test/config/config_1531431_tetragonal.txt
@@ -61,7 +61,7 @@ nthread=10
 echo "Logging: Start study simulation and merge!"
 mpiexec -n ${nthread} --ppn ${nthread} --depth=1 --cpu-bind depth --env OMP_NUM_THREADS=1 --env OMP_PLACES=threads \
      python ${exe_dir}/simulation_sweep.py \
-            2000 \
+            10000 \
             ${data_dir}/study/config/config_1001460_cubic.txt \
             ${data_dir}/study/config/config_1522004_trigonal.txt \
             ${data_dir}/study/config/config_1531431_tetragonal.txt

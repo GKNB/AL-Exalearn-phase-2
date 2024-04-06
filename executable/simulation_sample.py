@@ -275,9 +275,9 @@ def main():
                        cubic_bounding_box, 
                        trigonal_bounding_box, alpha_diff_trigonal,
                        tetragonal_bounding_box, ac_diff_tetragonal)
-    print(sample_cubic)
-    print(sample_trigonal)
-    print(sample_tetragonal)
+    print("sample_cubic = ", sample_cubic)
+    print("sample_trigonal = ", sample_trigonal)
+    print("sample_tetragonal = ", sample_tetragonal)
 
     _sim_impl(rank, size, "cubic", conf_name_cubic, sample_cubic)
     _sim_impl(rank, size, "trigonal", conf_name_trigonal, sample_trigonal)
