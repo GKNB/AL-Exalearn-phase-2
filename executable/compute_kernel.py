@@ -1,9 +1,19 @@
 import torch
+import torch.utils.data.distributed
+import torch.distributed as dist
+from torch.nn.parallel import DistributedDataParallel as DDP
 import numpy as np
 
-def train(epoch, 
+def metric_average(val, size, name):
+    # Sum everything and divide by total size:
+    dist.all_reduce(val,op=dist.ReduceOp.SUM)
+    val /= size
+    return val
+
+def train(epoch, rank, size,
           model, optimizer, 
           train_loader, 
+          train_sampler,
           criterion_reg, criterion_class, 
           lr_scheduler,
           on_gpu, 
@@ -11,7 +21,9 @@ def train(epoch,
           loss_list):
     
     model.train()
-    print("lr = ", optimizer.param_groups[0]['lr'])
+    train_sampler.set_epoch(epoch)
+    if rank == 0:
+        print("lr = ", optimizer.param_groups[0]['lr'])
 
     if epoch % log_interval == 0:
         running_loss  = torch.tensor(0.0)
@@ -49,10 +61,14 @@ def train(epoch,
         running_loss  = running_loss  / len(train_loader)
         running_loss1 = running_loss1 / len(train_loader)
         running_loss2 = running_loss2 / len(train_loader)
-        print("epoch: {}, Average loss_reg: {:15.8f}, loss_class: {:15.8f}, loss_tot: {:15.8f}".format(epoch, running_loss1, running_loss2, running_loss))
-        loss_list.append(running_loss)
+        loss_avg  = metric_average(running_loss, size, 'running_loss')
+        loss1_avg = metric_average(running_loss1, size, 'running_loss1')
+        loss2_avg = metric_average(running_loss2, size, 'running_loss2')
+        if rank == 0:
+            print("epoch: {}, Average loss_reg: {:15.8f}, loss_class: {:15.8f}, loss_tot: {:15.8f}".format(epoch, loss1_avg, loss2_avg, loss_avg))
+        loss_list.append(loss_avg)
 
-def test(epoch, 
+def test(epoch, rank, size,
          model,
          test_loader,
          criterion_reg, criterion_class,
@@ -84,34 +100,66 @@ def test(epoch,
         test_loss1 += criterion_reg(y_pred_torch_regression, regression_gndtruth).item()
         test_loss2 += criterion_class(y_pred_torch_class, class_gndtruth).item()
     
-    test_loss1 = test_loss1.detach().cpu().numpy() / len(test_loader)
-    test_loss2 = test_loss2.detach().cpu().numpy() / len(test_loader)
+    test_loss1 = test_loss1 / len(test_loader)
+    test_loss2 = test_loss2 / len(test_loader)
     test_loss  = test_loss1 + test_loss2
+
+    loss_avg  = metric_average(test_loss, size, "loss_avg")
+    loss_avg1 = metric_average(test_loss1, size, "loss_avg1")
+    loss_avg2 = metric_average(test_loss2, size, "loss_avg2")
+
+    loss_avg = loss_avg.cpu().numpy()
+
     if epoch % log_interval == 0:
-        print("epoch: {}, Average test_loss_reg: {:15.8f}, test_loss_class: {:15.8f}, test_loss_tot: {:15.8f}".format(epoch, test_loss1, test_loss2, test_loss))
-    loss_list.append(test_loss)
+        if rank == 0:
+            print("epoch: {}, Average test_loss_reg: {:15.8f}, test_loss_class: {:15.8f}, test_loss_tot: {:15.8f}".format(epoch, loss_avg1, loss_avg2, loss_avg))
+        loss_list.append(loss_avg)
 
-    return test_loss
+    return loss_avg
 
-#It will move the model back to CPU!! Be careful!
-#Make sure that this is running on CPU, both model and data!!
-#Because of that make sure it is running only once! Rather than once every some epoch!
-#The inputs are torch tensor, not numpy array or torch dataset
-def validation(model, x_test, y_test,
-               criterion_class):
+#Here criterion_reg could be different from that in train since it does not have uncertainty term
+def validation(rank, size,
+               model,
+               test_loader,
+               criterion_reg, criterion_class,
+               on_gpu):
 
     model.eval()
-    model = model.cpu()
 
-    with torch.no_grad():
-        y_pred_class, y_pred_regression = model(x_test)
-    y_pred_class = y_pred_class.detach()
-    y_pred_regression = y_pred_regression.detach().reshape(-1, 4)
-    avg_diff_0 = torch.mean((y_pred_regression[:,0:3] - y_test[:,0:3]) ** 2).numpy()
-    avg_sigma2 = torch.mean(torch.exp(y_pred_regression[:,3])).numpy()
-    avg_class_loss = criterion_class(y_pred_class, y_test[:,3].type(torch.LongTensor)).numpy()
-    print("Avg diff on test set = ", avg_diff_0)
-    print("Avg sigma^2 on test set = ", avg_sigma2)
-    print("Avg class loss on test set = ", avg_class_loss)
+    diff0  = torch.tensor(0.0)
+    sigma2 = torch.tensor(0.0)
+    class_loss = torch.tensor(0.0)
+    if on_gpu:
+        diff0, sigma2, class_loss  = diff0.cuda(), sigma2.cuda(), class_loss.cuda()
+ 
+    for batch_idx, current_batch in enumerate(test_loader):
+        if on_gpu:
+            inp, current_batch_y = current_batch[0].cuda(), current_batch[1].cuda()
+        else:
+            inp, current_batch_y = current_batch[0],        current_batch[1]        
+
+        with torch.no_grad():
+            y_pred_torch_class, y_pred_torch_regression = model(inp)
+        regression_gndtruth = current_batch_y[:,0:3]
+        class_gndtruth = current_batch_y[:,3].type(torch.LongTensor)
+        if on_gpu:       #Seems like reset the tensor type moves data from GPU back to CPU, so need to move it to device again!
+            class_gndtruth = class_gndtruth.cuda()
+
+        diff0 += criterion_reg(y_pred_torch_regression[:,0:3], regression_gndtruth).item()
+        class_loss += criterion_class(y_pred_torch_class, class_gndtruth).item()
+        sigma2 += torch.mean(torch.exp(y_pred_torch_regression[:,3]))
     
-    return avg_diff_0, avg_sigma2, avg_class_loss
+    diff0 = diff0 / len(test_loader)
+    class_loss = class_loss / len(test_loader)
+    sigma2 = sigma2 / len(test_loader)
+
+    diff0 = metric_average(diff0, size, "diff0").cpu().numpy()
+    class_loss = metric_average(class_loss, size, "class_loss").cpu().numpy()
+    sigma2 = metric_average(sigma2, size, "sigma2").cpu().numpy()
+
+    if rank == 0:
+        print("Avg diff on test set = ", diff0)
+        print("Avg sigma^2 on test set = ", class_loss)
+        print("Avg class loss on test set = ", sigma2)
+    
+    return diff0, sigma2, class_loss

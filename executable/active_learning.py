@@ -1,13 +1,21 @@
 import torch
 import numpy as np
 import argparse
+from collections import OrderedDict
 
 import model as mdp
 
 def get_freq(args, do_print = True):
     checkpoint = torch.load('ckpt.pth')
+    state_dict = checkpoint['model_state_dict']
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = k[7:] # remove 'module.' of DataParallel/DistributedDataParallel
+        new_state_dict[name] = v
+ 
     model = mdp.FullModel(len_input = 2806, num_hidden = 256, num_output = 3+1, num_classes = 3)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(new_state_dict)
+    
     model.eval()
     model = model.cpu()
 
