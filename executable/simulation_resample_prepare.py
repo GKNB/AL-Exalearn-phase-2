@@ -10,110 +10,6 @@ import time
 import h5py
 from contextlib import redirect_stdout      #for debug
 
-import sweep_utils as su
-
-gpx = []
-phase = []
-
-
-def cubic_lattice(prm):
-    """ This function uses a 1D grid.
-
-        Parameters for cubic lattice:
-        a = b = c
-        alpha = beta = gamma = 90
-    """
-
-    global gpx
-    global phase
-
-    # Unit cell parameters
-    # Lattice
-    phase['General']['Cell'][1] = prm[0] # a
-    phase['General']['Cell'][2] = prm[0] # b
-    phase['General']['Cell'][3] = prm[0] # c
-
-    # Angles
-    phase['General']['Cell'][4] = 90 # alpha
-    phase['General']['Cell'][5] = 90 # beta
-    phase['General']['Cell'][6] = 90 # gamma
-
-    # Compute simulation
-    gpx.data['Controls']['data']['max cyc']=0
-    gpx.do_refinements([{}])
-
-    x = gpx.histogram(0).getdata('x')
-    y = gpx.histogram(0).getdata('ycalc')
-
-    return x, y
-
-
-
-def trigonal_lattice(prm):
-    """ This function uses a 2D grid.
-
-        Parameters for trigonal lattice:
-        a = b = c
-        alpha = beta = gamma != 90
-    """
-
-    global gpx
-    global phase
-
-    # Unit cell parameters
-    # Lattice
-    phase['General']['Cell'][1] = prm[0] # a
-    phase['General']['Cell'][2] = prm[0] # b
-    phase['General']['Cell'][3] = prm[0] # c
-
-    # Angles
-    phase['General']['Cell'][4] = prm[1] # alpha
-    phase['General']['Cell'][5] = prm[1] # beta
-    phase['General']['Cell'][6] = prm[1] # gamma
-
-    # Compute simulation
-    gpx.data['Controls']['data']['max cyc']=0
-    gpx.do_refinements([{}])
-
-    x = gpx.histogram(0).getdata('x')
-    y = gpx.histogram(0).getdata('ycalc')
-
-    return x, y
-
-
-
-def tetragonal_lattice(prm):
-    """ This function uses a 2D grid.
-
-        Parameters for tetragonal lattice:
-        a = b != c
-        alpha = beta = gamma = 90
-    """
-
-    global gpx
-    global phase
-
-    # Unit cell parameters
-    # Lattice
-    # c should be differe
-    phase['General']['Cell'][1] = prm[0] # a
-    phase['General']['Cell'][2] = prm[0] # b
-    phase['General']['Cell'][3] = prm[1] # c
-
-    # Angles
-    phase['General']['Cell'][4] = 90 # alpha
-    phase['General']['Cell'][5] = 90 # beta
-    phase['General']['Cell'][6] = 90 # gamma
-
-    # Compute simulation
-    gpx.data['Controls']['data']['max cyc']=0
-    gpx.do_refinements([{}])
-
-    x = gpx.histogram(0).getdata('x')
-    y = gpx.histogram(0).getdata('ycalc')
-
-    return x, y
-
 
 def _generate_random_uniform(sz, low, high):
     random_numbers = np.random.uniform(low, high, sz)
@@ -214,62 +110,13 @@ def create_all_samples(rank, size, seed_g,
 
     return sample_cubic[rank::size][:], sample_trigonal[rank::size][:], sample_tetragonal[rank::size][:]
 
-def _sim_impl(rank, size, sym, conffile_name, sample):
-    start = time.time()
-
-    gParameters = su.read_config_file(conffile_name)
-    # Create project
-    name = gParameters['name'] +'_rank' + str(rank)
-    path_in = gParameters['path_in']
-    path_out = gParameters['path_out']
-    name_out = gParameters['name_out']
-    global gpx
-    gpx = G2sc.G2Project(newgpx=path_out+name+'.gpx')
-    
-    # Add phase: Requires CIF file
-    cif = path_in + gParameters['cif']
-    global phase
-    phase = gpx.add_phase(cif,phasename=name,fmthint='CIF')
-    
-    # Get instrument file specification
-    instprm = path_in + gParameters['instprm']
-    # Histogram range
-    Tmin = gParameters['tmin']
-    Tmax = gParameters['tmax']
-    Tstep = gParameters['tstep']
-    hist = gpx.add_simulated_powder_histogram(name+'TOFsimulation',instprm,Tmin,Tmax,Tstep,phases=gpx.phases())
-    hist.SampleParameters['Scale'][0] = 1000.
-    # Set to no-background
-    hist['Background'][0][3]=0.0
-    
-    symmetry = gParameters['symmetry']
-    assert symmetry == sym, "symmetry = {} and sym = {}".format(symmetry, sym)
-    
-    # Configure sweep according to symmetry
-    if symmetry == 'cubic':
-        sweepf_ = cubic_lattice
-    elif symmetry == 'trigonal':
-        sweepf_ = trigonal_lattice
-    elif symmetry == 'tetragonal':
-        sweepf_ = tetragonal_lattice
-    else:
-        exit("Do not recognize symmetry of {}".format(symmetry))
-    
-    # Distribute computation
-    nsim, histosz = su.grid_sample(rank, size, sweepf_, sample, path_out, name_out + '_' + symmetry)
-    end = time.time()
-    print('----------------------------------------------------------')
-    print("Rank = {}, Number of simulations ({}): {}, size of histogram: {}, cost {} seconds".format(rank, symmetry, nsim, histosz, end-start))
-
-
 def main():
 
     start = time.time()
-    if ( len ( sys.argv ) != 8 ) :
+    if ( len ( sys.argv ) != 5 ) :
         sys.stderr.write("Usage: python simulation_resample.py "
-                         "global_seed conf_name_cubic cubic_studyset "
-                         "conf_name_trigonal trigonal_studyset "
-                         "conf_name_tetragonal tetragonal_studyset\n")
+                         "global_seed cubic_studyset "
+                         "trigonal_studyset tetragonal_studyset\n")
         sys.exit(0)
 
     comm = MPI.COMM_WORLD
@@ -278,12 +125,9 @@ def main():
     print("Rank = {} out of size = {}", rank, size)
 
     global_seed = int(sys.argv[1])
-    conf_name_cubic = sys.argv[2]
-    cubic_studyset = str(sys.argv[3])
-    conf_name_trigonal = sys.argv[4]
-    trigonal_studyset = str(sys.argv[5])
-    conf_name_tetragonal = sys.argv[6]
-    tetragonal_studyset = str(sys.argv[7])
+    cubic_studyset = str(sys.argv[2])
+    trigonal_studyset = str(sys.argv[3])
+    tetragonal_studyset = str(sys.argv[4])
 
     a_min1 = 3.5
     a_max1 = 4.5
@@ -327,14 +171,10 @@ def main():
                        cubic_bounding_box, 
                        trigonal_bounding_box, alpha_diff_trigonal,
                        tetragonal_bounding_box, ac_diff_tetragonal)
-    print(sample_cubic)
-    print(sample_trigonal)
-    print(sample_tetragonal)
 
-    _sim_impl(rank, size, "cubic", conf_name_cubic, sample_cubic)
-    _sim_impl(rank, size, "trigonal", conf_name_trigonal, sample_trigonal)
-    _sim_impl(rank, size, "tetragonal", conf_name_tetragonal, sample_tetragonal)
-
+    np.save('sample_cubic_rank_{}.npy'.format(rank), sample_cubic)
+    np.save('sample_trigonal_rank_{}.npy'.format(rank), sample_trigonal)
+    np.save('sample_tetragonal_rank_{}.npy'.format(rank), sample_tetragonal)
 
 if __name__ == '__main__':
     main()

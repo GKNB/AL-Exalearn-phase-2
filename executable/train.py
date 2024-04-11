@@ -156,9 +156,9 @@ y_train_torch = torch.from_numpy(y_train).float()
 if args.phase_idx == 0:
     train_dataset = torch.utils.data.TensorDataset(x_train_torch, y_train_torch)
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=size, rank=rank, drop_last=True)
+        train_dataset, num_replicas=size, rank=rank, drop_last=False)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=True, **kwargs)
+        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=False, **kwargs)
 print_from_rank0("x_train_torch.shape = ", x_train_torch.shape)
 print_from_rank0("y_train_torch.shape = ", y_train_torch.shape)
 
@@ -167,9 +167,9 @@ x_test_torch = x_test_torch.reshape((x_test_torch.shape[0], 1, x_test_torch.shap
 y_test_torch = torch.from_numpy(y_test).float()
 test_dataset = torch.utils.data.TensorDataset(x_test_torch, y_test_torch)
 test_sampler = torch.utils.data.distributed.DistributedSampler(
-    test_dataset, num_replicas=size, rank=rank, drop_last=True)
+    test_dataset, num_replicas=size, rank=rank, drop_last=False)
 test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=args.batch_size, sampler=test_sampler, drop_last=True, **kwargs)
+    test_dataset, batch_size=args.batch_size, sampler=test_sampler, drop_last=False, **kwargs)
 print_from_rank0("x_test_torch.shape = ", x_test_torch.shape)
 print_from_rank0("y_test_torch.shape = ", y_test_torch.shape)
 
@@ -231,15 +231,24 @@ if args.phase_idx > 0:
         x_AL_list.append(x_AL_temp)
         y_AL_list.append(y_AL_temp)
 
+#In streaming execution, we not only need AL data, but also streaming data stream_0 upto stream_k-1
+    for i in range(0, args.phase_idx):
+        stream_cubic_file      = os.path.join(args.data_dir, "stream_phase_{}/data/cubic_1001460_cubic.hdf5".format(args.phase_idx))
+        stream_trigonal_file   = os.path.join(args.data_dir, "stream_phase_{}/data/trigonal_1522004_trigonal.hdf5".format(args.phase_idx))
+        stream_tetragonal_file = os.path.join(args.data_dir, "stream_phase_{}/data/tetragonal_1531431_tetragonal.hdf5".format(args.phase_idx))
+        x_AL_temp, y_AL_temp = util.create_numpy_data(stream_cubic_file, stream_trigonal_file, stream_tetragonal_file)
+        x_AL_list.append(x_AL_temp)
+        y_AL_list.append(y_AL_temp)
+
     for i in range(len(x_AL_list)):
         x_train_torch = torch.cat((x_train_torch, torch.from_numpy(x_AL_list[i]).float().reshape((x_AL_list[i].shape[0], 1, x_AL_list[i].shape[1]))), axis=0)
         y_train_torch = torch.cat((y_train_torch, torch.from_numpy(y_AL_list[i]).float()), axis=0)
     
     train_dataset = torch.utils.data.TensorDataset(x_train_torch, y_train_torch)
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=size, rank=rank, drop_last=True)
+        train_dataset, num_replicas=size, rank=rank, drop_last=False)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=True, **kwargs)
+        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=False, **kwargs)
 
 print_from_rank0("x_train_torch.shape = ", x_train_torch.shape)
 print_from_rank0("y_train_torch.shape = ", y_train_torch.shape)
