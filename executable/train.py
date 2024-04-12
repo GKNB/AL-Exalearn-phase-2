@@ -28,16 +28,14 @@ parser = argparse.ArgumentParser(description='Exalearn_Training_v1')
 
 parser.add_argument('--batch_size',     type=int,   default=2048,
                     help='input batch size for training (default: 2048)')
-parser.add_argument('--epochs',         type=int,   default=4000,
-                    help='max number of epochs to train, early stop ends early (default: 4000)')
+parser.add_argument('--epochs',         type=int,   default=1000,
+                    help='number of epochs to train, save the best model instead of the model at last epoch (default: 1000)')
 parser.add_argument('--lr',             type=float, default=0.0005,
                     help='learning rate (default: 0.0005)')
 parser.add_argument('--seed',           type=int,   default=42,
                     help='random seed (default: 42)')
 parser.add_argument('--log_interval',   type=int,   default=1,
                     help='how many batches to wait before logging training status')
-parser.add_argument('--blind_train_epoch',   type=int,   default=1000,
-                    help='number of epochs to train without early stopping (default: 1000)')
 parser.add_argument('--device',         default='cpu', choices=['cpu', 'gpu'],
                     help='Whether this is running on cpu or gpu')
 parser.add_argument('--ntrain',         type=float, default=2000,
@@ -254,9 +252,10 @@ scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
 train_loss_list = []
 test_loss_list = []
-early_stopping = util.EarlyStopping(max_num=100//args.log_interval, min_delta=0.001)
 
 time_tot = time.time()
+best_loss = 99999999.9
+best_epoch = -1
 
 for epoch in range(0, args.epochs):
 
@@ -279,21 +278,19 @@ for epoch in range(0, args.epochs):
                      log_interval = args.log_interval,
                      loss_list = test_loss_list)
 
-    if epoch > args.blind_train_epoch:
-        early_stopping(test_loss)
-        if early_stopping.improve:
-            if rank == 0:
-                checkpoint = {
-                    'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                }
-                torch.save(checkpoint, 'ckpt.pth')
-                print_from_rank0("Save model at epoch ", epoch)
-        if early_stopping.do_stop:
-            print_from_rank0(f"Early stopping triggered at epoch {epoch}")
-            break;
+    if test_loss < best_loss:
+        best_loss = test_loss
+        best_epoch = epoch
+        if rank == 0:
+            checkpoint = {
+                'model_state_dict': model.state_dict(),
+                'optimizer_state_dict': optimizer.state_dict(),
+            }
+        print_from_rank0("Better model at epoch ", epoch)
 
-print_from_rank0("Best val loss = ", early_stopping.best_loss)
+if rank == 0:
+    torch.save(checkpoint, 'ckpt.pth')
+print_from_rank0("Best val loss = {} at epoch = {}".format(best_loss, best_epoch))
 time_tot = time.time() - time_tot
 print_from_rank0("Total training time = {}".format(time_tot))
 

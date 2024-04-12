@@ -75,7 +75,7 @@ cd ${exp_dir}
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
     mpiexec -n 4 --ppn 8 \
-        python ${exe_dir}/train.py --device=gpu --phase_idx 0 --data_dir=${data_dir} --blind_train_epoch 400 --shared_file_dir ${shared_file_dir}
+        python ${exe_dir}/train.py --epochs 1000 --device=gpu --phase_idx 0 --data_dir=${data_dir} --shared_file_dir ${shared_file_dir}
     echo "Logging: End training phase 0, $(( $(date +%s%3N) - ${start} )) milliseconds"
  
     echo "Logging: Start AL, phase 0"
@@ -108,7 +108,7 @@ cd ${exp_dir}
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
     mpiexec -n 4 --ppn 8 \
-        python ${exe_dir}/train.py --device=gpu --phase_idx=1 --data_dir=${data_dir} --blind_train_epoch 400 --shared_file_dir ${shared_file_dir}
+        python ${exe_dir}/train.py --epochs 800 --device=gpu --phase_idx=1 --data_dir=${data_dir} --shared_file_dir ${shared_file_dir}
     echo "Logging: End training, phase 1, $(( $(date +%s%3N) - ${start} )) milliseconds"
  
     rm AL-freq.npy
@@ -140,7 +140,7 @@ cd ${exp_dir}
     mv ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
     mkdir -p ${shared_file_dir}
     mpiexec -n 4 --ppn 8 \
-        python ${exe_dir}/train.py --device=gpu --phase_idx=2 --data_dir=${data_dir} --blind_train_epoch 400 --shared_file_dir ${shared_file_dir}
+        python ${exe_dir}/train.py --epochs 600 --device=gpu --phase_idx=2 --data_dir=${data_dir} --shared_file_dir ${shared_file_dir}
     echo "Logging: End training, phase 2, $(( $(date +%s%3N) - ${start} )) milliseconds"
     
     rm AL-freq.npy
@@ -172,7 +172,7 @@ cd ${exp_dir}
     mv ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
     mkdir -p ${shared_file_dir}
     mpiexec -n 4 --ppn 8 \
-        python ${exe_dir}/train.py --device=gpu --phase_idx=3 --data_dir=${data_dir} --blind_train_epoch 400 --shared_file_dir ${shared_file_dir}
+        python ${exe_dir}/train.py --epochs 400 --device=gpu --phase_idx=3 --data_dir=${data_dir} --shared_file_dir ${shared_file_dir}
     echo "Logging: End training, phase 3, $(( $(date +%s%3N) - ${start} )) milliseconds"
    
     rm AL-freq.npy

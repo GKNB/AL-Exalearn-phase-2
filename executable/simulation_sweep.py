@@ -256,7 +256,7 @@ def main():
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-    print("Rank = {} out of size = {}", rank, size)
+    print("Rank = {} out of size = {}".format(rank, size))
 
     num_sample_total = int(sys.argv[1])
     conf_name_cubic = sys.argv[2]

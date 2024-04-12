@@ -49,6 +49,11 @@ def train(epoch, rank, size,
         loss2 = criterion_class(class_output, class_gndtruth)
         loss  = loss1 + loss2
         loss.backward()
+
+        torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=50.0)
+#        max_grad = max(param.grad.abs().max() for param in model.parameters() if param.grad is not None)
+#        print("TW: Looking at param grad, rank = {}, batch_idx = {}, |grad|_max = {}".format(rank, batch_idx, max_grad))
+
         optimizer.step()
 
         if epoch % log_interval == 0:
