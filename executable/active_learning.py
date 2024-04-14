@@ -1,11 +1,17 @@
 import torch
 import numpy as np
 import argparse
+import random
 from collections import OrderedDict
 
 import model as mdp
 
 def get_freq(args, do_print = True):
+
+    torch.manual_seed(args.seed)
+    random.seed(args.seed)
+    np.random.seed(args.seed)
+
     checkpoint = torch.load('ckpt.pth')
     state_dict = checkpoint['model_state_dict']
     new_state_dict = OrderedDict()

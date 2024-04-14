@@ -276,7 +276,7 @@ def main():
     cubic_bounding_box = np.array([[a_min1, a_max1]])
     trigonal_bounding_box = np.array([[a_min2, a_max2], [alpha_min, alpha_max]])
     tetragonal_bounding_box = np.array([[a_min2, a_max2], [c_min, c_max]])
-    alpha_diff_trigonal = 0.4
+    alpha_diff_trigonal = 0.2
     ac_diff_tetragonal = 0.001
 
     sample_cubic, sample_trigonal, sample_tetragonal = create_all_samples(rank, size,
