@@ -19,7 +19,7 @@ import model as mdp
 import util
 import compute_kernel as ker
 
-
+#The only difference between this one and train.py is that, it removes the processing of study set, so that study processing can start after training is done
 
 #----------------------Parser settings---------------------------
 print("Start setting parser!", flush=True)
@@ -122,29 +122,16 @@ base_tetragonal_file  = os.path.join(args.data_dir, "base/data/tetragonal_153143
 test_cubic_file       = os.path.join(args.data_dir, "test/data/cubic_1001460_cubic.hdf5")
 test_trigonal_file    = os.path.join(args.data_dir, "test/data/trigonal_1522004_trigonal.hdf5")
 test_tetragonal_file  = os.path.join(args.data_dir, "test/data/tetragonal_1531431_tetragonal.hdf5")
-study_cubic_file      = os.path.join(args.data_dir, "study/data/cubic_1001460_cubic.hdf5")
-study_trigonal_file   = os.path.join(args.data_dir, "study/data/trigonal_1522004_trigonal.hdf5")
-study_tetragonal_file = os.path.join(args.data_dir, "study/data/tetragonal_1531431_tetragonal.hdf5")
 
 x_train,  y_train  = util.create_numpy_data(base_cubic_file, base_trigonal_file,  base_tetragonal_file)
 x_test,  y_test  = util.create_numpy_data(test_cubic_file, test_trigonal_file,  test_tetragonal_file)
-x_study, y_study = util.create_numpy_data(study_cubic_file, study_trigonal_file, study_tetragonal_file)
 
 print_from_rank0("x_train.shape = ", x_train.shape)
 print_from_rank0("y_train.shape = ", y_train.shape)
 print_from_rank0("x_test.shape = ", x_test.shape)
 print_from_rank0("y_test.shape = ", y_test.shape)
-print_from_rank0("x_study.shape = ", x_study.shape)
-print_from_rank0("y_study.shape = ", y_study.shape)
 
 print_memory_usage_from_rank0("Finish loading data!")
-
-x_study_torch = torch.from_numpy(x_study).float()
-x_study_torch = x_study_torch.reshape((x_study_torch.shape[0], 1, x_study_torch.shape[1]))
-y_study_torch = torch.from_numpy(y_study).float()
-print_from_rank0("x_study_torch.shape = ", x_study_torch.shape)
-print_from_rank0("y_study_torch.shape = ", y_study_torch.shape)
-torch.save(x_study_torch, "x_study_torch.pt")
 
 kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if args.cuda else {}
 
@@ -154,9 +141,9 @@ y_train_torch = torch.from_numpy(y_train).float()
 if args.phase_idx == 0:
     train_dataset = torch.utils.data.TensorDataset(x_train_torch, y_train_torch)
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=size, rank=rank, drop_last=False)
+        train_dataset, num_replicas=size, rank=rank, drop_last=True)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=False, **kwargs)
+        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=True, **kwargs)
 print_from_rank0("x_train_torch.shape = ", x_train_torch.shape)
 print_from_rank0("y_train_torch.shape = ", y_train_torch.shape)
 
@@ -165,9 +152,9 @@ x_test_torch = x_test_torch.reshape((x_test_torch.shape[0], 1, x_test_torch.shap
 y_test_torch = torch.from_numpy(y_test).float()
 test_dataset = torch.utils.data.TensorDataset(x_test_torch, y_test_torch)
 test_sampler = torch.utils.data.distributed.DistributedSampler(
-    test_dataset, num_replicas=size, rank=rank, drop_last=False)
+    test_dataset, num_replicas=size, rank=rank, drop_last=True)
 test_loader = torch.utils.data.DataLoader(
-    test_dataset, batch_size=args.batch_size, sampler=test_sampler, drop_last=False, **kwargs)
+    test_dataset, batch_size=args.batch_size, sampler=test_sampler, drop_last=True, **kwargs)
 print_from_rank0("x_test_torch.shape = ", x_test_torch.shape)
 print_from_rank0("y_test_torch.shape = ", y_test_torch.shape)
 
@@ -229,24 +216,15 @@ if args.phase_idx > 0:
         x_AL_list.append(x_AL_temp)
         y_AL_list.append(y_AL_temp)
 
-#In streaming execution, we not only need AL data, but also streaming data stream_0 upto stream_k-1
-    for i in range(0, args.phase_idx):
-        stream_cubic_file      = os.path.join(args.data_dir, "stream_phase_{}/data/cubic_1001460_cubic.hdf5".format(args.phase_idx))
-        stream_trigonal_file   = os.path.join(args.data_dir, "stream_phase_{}/data/trigonal_1522004_trigonal.hdf5".format(args.phase_idx))
-        stream_tetragonal_file = os.path.join(args.data_dir, "stream_phase_{}/data/tetragonal_1531431_tetragonal.hdf5".format(args.phase_idx))
-        x_AL_temp, y_AL_temp = util.create_numpy_data(stream_cubic_file, stream_trigonal_file, stream_tetragonal_file)
-        x_AL_list.append(x_AL_temp)
-        y_AL_list.append(y_AL_temp)
-
     for i in range(len(x_AL_list)):
         x_train_torch = torch.cat((x_train_torch, torch.from_numpy(x_AL_list[i]).float().reshape((x_AL_list[i].shape[0], 1, x_AL_list[i].shape[1]))), axis=0)
         y_train_torch = torch.cat((y_train_torch, torch.from_numpy(y_AL_list[i]).float()), axis=0)
     
     train_dataset = torch.utils.data.TensorDataset(x_train_torch, y_train_torch)
     train_sampler = torch.utils.data.distributed.DistributedSampler(
-        train_dataset, num_replicas=size, rank=rank, drop_last=False)
+        train_dataset, num_replicas=size, rank=rank, drop_last=True)
     train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=False, **kwargs)
+        train_dataset, batch_size=args.batch_size, sampler=train_sampler, drop_last=True, **kwargs)
 
 print_from_rank0("x_train_torch.shape = ", x_train_torch.shape)
 print_from_rank0("y_train_torch.shape = ", y_train_torch.shape)
@@ -324,62 +302,3 @@ l2_diff, sigma2, class_loss = ker.validation(rank, size,
 print_from_rank0("Final validation time = {}".format(time.time() - st))
 
 torch.distributed.destroy_process_group()
-
-#FIXME! Maybe need to move model to GPU as I modify code above
-##----------------------baseline branch-------------------------
-#checkpoint = torch.load('ckpt.pth')
-#model.load_state_dict(checkpoint['model_state_dict'])
-#optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-#
-#x_train = x_orig[0:args.ntrain+int(num_extra)]
-#y_train = y_orig[0:args.ntrain+int(num_extra)]
-#print(x_train.shape)
-#print(y_train.shape)
-#
-#x_train_torch = torch.from_numpy(x_train).float()
-#x_train_torch = x_train_torch.reshape((x_train_torch.shape[0], 1, x_train_torch.shape[1]))
-#y_train_torch = torch.from_numpy(y_train).float()
-#train_dataset = torch.utils.data.TensorDataset(x_train_torch, y_train_torch)
-#train_loader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, **kwargs)
-#print(x_train_torch.shape)
-#print(y_train_torch.shape)
-#
-#print_memory_usage("finish loading from disk")
-#
-#for param_group in optimizer.param_groups:
-#    param_group['lr'] = args.lr
-#scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
-#
-#train_loss_list = []
-#test_loss_list = []
-#early_stopping = util.EarlyStopping(max_num=100, min_delta=0.001)
-#
-#for epoch in range(0, args.epochs):
-#    ker.train(epoch, train_loss_list)
-#    test_loss = ker.test(epoch, test_loss_list)
-#    if epoch > args.blind_train_epoch:
-#        early_stopping(test_loss)
-#        if early_stopping.improve:
-#            checkpoint = {
-#                'model_state_dict': model.state_dict(),
-#                'optimizer_state_dict': optimizer.state_dict(),
-#            }
-#            torch.save(checkpoint, 'ckpt.pth')
-#            print("Save model at epoch ", epoch)
-#        if early_stopping.do_stop:
-#            print(f"Early stopping triggered at epoch {epoch}")
-#            break;
-#print("Best val loss = ", early_stopping.best_loss)
-#
-#print_memory_usage("finish second training part")
-#
-#model = mdp.FullModel(len_input = 2806, num_hidden = 256, num_output = 3+1, num_classes = 3)
-#if args.cuda:
-#    model = model.cuda()
-#optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
-#
-#checkpoint = torch.load('ckpt.pth')
-#model.load_state_dict(checkpoint['model_state_dict'])
-#optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
-#
-#l2_diff_2, sigma2_2, class_loss_2 = ker.validation(model, x_test_torch, y_test_torch, criterion_class) 

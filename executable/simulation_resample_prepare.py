@@ -122,7 +122,7 @@ def main():
     comm = MPI.COMM_WORLD
     size = comm.Get_size()
     rank = comm.Get_rank()
-    print("Rank = {} out of size = {}", rank, size)
+    print("Rank = {} out of size = {}".format(rank, size))
 
     global_seed = int(sys.argv[1])
     cubic_studyset = str(sys.argv[2])
@@ -141,7 +141,7 @@ def main():
     cubic_bounding_box = np.array([[a_min1, a_max1]])
     trigonal_bounding_box = np.array([[a_min2, a_max2], [alpha_min, alpha_max]])
     tetragonal_bounding_box = np.array([[a_min2, a_max2], [c_min, c_max]])
-    alpha_diff_trigonal = 0.4
+    alpha_diff_trigonal = 0.2
     ac_diff_tetragonal = 0.001
 
     with h5py.File(cubic_studyset, 'r') as f:
