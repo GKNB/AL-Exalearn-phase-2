@@ -222,9 +222,9 @@ if args.phase_idx > 0:
 
 #In phase_k, we already have base data and AL_1 upto AL_k
     for i in range(1, args.phase_idx + 1):
-        AL_cubic_file       = os.path.join(args.data_dir, "AL_phase_{}/data/cubic_1001460_cubic.hdf5".format(args.phase_idx))
-        AL_trigonal_file    = os.path.join(args.data_dir, "AL_phase_{}/data/trigonal_1522004_trigonal.hdf5".format(args.phase_idx))
-        AL_tetragonal_file  = os.path.join(args.data_dir, "AL_phase_{}/data/tetragonal_1531431_tetragonal.hdf5".format(args.phase_idx))
+        AL_cubic_file       = os.path.join(args.data_dir, "AL_phase_{}/data/cubic_1001460_cubic.hdf5".format(i))
+        AL_trigonal_file    = os.path.join(args.data_dir, "AL_phase_{}/data/trigonal_1522004_trigonal.hdf5".format(i))
+        AL_tetragonal_file  = os.path.join(args.data_dir, "AL_phase_{}/data/tetragonal_1531431_tetragonal.hdf5".format(i))
         x_AL_temp, y_AL_temp = util.create_numpy_data(AL_cubic_file, AL_trigonal_file, AL_tetragonal_file)
         x_AL_list.append(x_AL_temp)
         y_AL_list.append(y_AL_temp)
