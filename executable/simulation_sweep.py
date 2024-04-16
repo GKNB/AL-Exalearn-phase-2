@@ -249,6 +249,7 @@ def main():
 
     start = time.time()
     if ( len ( sys.argv ) != 5 ) :
+        print(sys.argv)
         sys.stderr.write("Usage: python simulation_sweep.py num_sample_total "
                          "conf_name_cubic, conf_name_trigonal, conf_name_tetragonal\n")
         sys.exit(0)

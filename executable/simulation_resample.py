@@ -266,6 +266,7 @@ def main():
 
     start = time.time()
     if ( len ( sys.argv ) != 8 ) :
+        print(sys.argv)
         sys.stderr.write("Usage: python simulation_resample.py "
                          "global_seed conf_name_cubic cubic_studyset "
                          "conf_name_trigonal trigonal_studyset "
