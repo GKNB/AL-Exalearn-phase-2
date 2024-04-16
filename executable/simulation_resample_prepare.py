@@ -114,6 +114,7 @@ def main():
 
     start = time.time()
     if ( len ( sys.argv ) != 5 ) :
+        print(sys.argv)
         sys.stderr.write("Usage: python simulation_resample.py "
                          "global_seed cubic_studyset "
                          "trigonal_studyset tetragonal_studyset\n")

@@ -236,6 +236,7 @@ def main():
 
     start = time.time()
     if ( len ( sys.argv ) != 6 ) :
+        print(sys.argv)
         sys.stderr.write("Usage: python simulation_sample.py num_sample_total "
                          "global_seed conf_name_cubic conf_name_trigonal conf_name_tetragonal\n")
         sys.exit(0)

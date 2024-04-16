@@ -11,6 +11,7 @@ import sys, os
 #Be careful! Here cubic has label 2 instead of 0!!!
 def main():
     if(len(sys.argv) != 4):
+        print(sys.argv)
         sys.stderr.write("Usage: python merge_preprocess_hdf5.py dir_path sym_class num_rank")
         sys.exit(0)
     dir_path  = sys.argv[1]

@@ -166,10 +166,10 @@ def _sim_impl(rank, size, sym, conffile_name, sample):
 def main():
 
     start = time.time()
-    if ( len ( sys.argv ) != 7 ) :
-        sys.stderr.write("Usage: python simulation_resample.py "
-                         "global_seed conf_name_cubic "
-                         "conf_name_trigonal conf_name_tetragonal "
+    if ( len ( sys.argv ) != 6 ) :
+        print(sys.argv)
+        sys.stderr.write("Usage: python simulation_resample_real_work.py "
+                         "conf_name_cubic conf_name_trigonal conf_name_tetragonal "
                          "which_half first_half_percent\n")
         sys.exit(0)
 
@@ -178,20 +178,19 @@ def main():
     rank = comm.Get_rank()
     print("Rank = {} out of size = {}", rank, size)
 
-    global_seed = int(sys.argv[1])
-    conf_name_cubic = sys.argv[2]
-    conf_name_trigonal = sys.argv[3]
-    conf_name_tetragonal = sys.argv[4]
-    which_half = sys.argv[5]
-    first_half_percent = float(sys.argv[6])
+    conf_name_cubic = sys.argv[1]
+    conf_name_trigonal = sys.argv[2]
+    conf_name_tetragonal = sys.argv[3]
+    which_half = sys.argv[4]
+    first_half_percent = float(sys.argv[5])
 
     sample_cubic      = np.load('sample_cubic_rank_{}.npy'.format(rank))
     sample_trigonal   = np.load('sample_trigonal_rank_{}.npy'.format(rank))
     sample_tetragonal = np.load('sample_tetragonal_rank_{}.npy'.format(rank))
 
-    split_index_cubic      = sample_cubic.shape[0] * first_half_percent
-    split_index_trigonal   = sample_trigonal.shape[0] * first_half_percent
-    split_index_tetragonal = sample_tetragonal.shape[0] * first_half_percent
+    split_index_cubic      = int(sample_cubic.shape[0] * first_half_percent)
+    split_index_trigonal   = int(sample_trigonal.shape[0] * first_half_percent)
+    split_index_tetragonal = int(sample_tetragonal.shape[0] * first_half_percent)
 
     if which_half == "first":
         sample_cubic      = sample_cubic[:split_index_cubic,:]
