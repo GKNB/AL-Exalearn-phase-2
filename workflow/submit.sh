@@ -18,7 +18,7 @@ exp_dir="${work_dir}/experiment/seed_${seed}/"
 shared_file_dir="${exp_dir}/sfd/"
 data_dir="${work_dir}/data/seed_${seed}/"
 num_sample=2500
-num_al_sample=5000
+num_al_sample=3000
 num_al_sample_final_stage=2500
 batch_size=512
 epochs_0=400
@@ -78,7 +78,7 @@ cd ${exp_dir}
 
     echo "Logging: Start training, phase 0"
     if [ -d ${shared_file_dir} ]; then
-        mv -f ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
+        rm -r ${shared_file_dir} 
     fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
@@ -153,7 +153,9 @@ cd ${exp_dir}
     echo "Logging: End resample simulation and merge, first (AL), phase 1, $(( $(date +%s%3N) - ${start} )) milliseconds"
 
     echo "Logging: Start training, phase 1"
-    mv -f ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
+    if [ -d ${shared_file_dir} ]; then
+        rm -r ${shared_file_dir} 
+    fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
     mpiexec -n 4 --ppn 4 \
@@ -220,7 +222,9 @@ cd ${exp_dir}
     echo "Logging: End resample simulation and merge, first (AL), phase 2, $(( $(date +%s%3N) - ${start} )) milliseconds"
     
     echo "Logging: Start training, phase 2"
-    mv -f ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
+    if [ -d ${shared_file_dir} ]; then
+        rm -r ${shared_file_dir} 
+    fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
     mpiexec -n 4 --ppn 4 \
@@ -287,7 +291,9 @@ cd ${exp_dir}
     echo "Logging: End resample simulation and merge, phase 3, $(( $(date +%s%3N) - ${start} )) milliseconds"
 
     echo "Logging: Start training, phase 3"
-    mv -f ${shared_file_dir} /lus/eagle/projects/RECUP/twang/trashbin/
+    if [ -d ${shared_file_dir} ]; then
+        rm -r ${shared_file_dir} 
+    fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
     mpiexec -n 4 --ppn 4 \
