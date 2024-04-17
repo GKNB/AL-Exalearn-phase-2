@@ -9,29 +9,29 @@
 source /home/twang3/useful_script/conda_exalearn.sh
 export MPICH_GPU_SUPPORT_ENABLED=1
 
-#Be careful about mapping between seed and num_sample and batch_size
-
-seed=10010
+seed=14000
 work_dir="/lus/eagle/projects/RECUP/twang/exalearn_stage2/"
 exe_dir="${work_dir}/executable/"
 exp_dir="${work_dir}/experiment/seed_${seed}/"
 shared_file_dir="${exp_dir}/sfd/"
 data_dir="${work_dir}/data/seed_${seed}/"
-num_sample=2500
-num_al_sample=3000
-num_al_sample_final_stage=2500
+num_sample=4500
+num_al_sample=16200
+num_al_sample_final_stage=13500
 batch_size=512
 epochs_0=400
 epochs_1=300
 epochs_2=250
 epochs_3=200
 
+nthread=32
+nthread_study=22
+ 
 echo "Logging: Start! seed = ${seed}"
 echo "Logging: data_dir = ${data_dir}"
 echo "Logging: Doing cleaning"
-rm -r /lus/eagle/projects/RECUP/twang/trashbin/*
-mv -f ${exp_dir}/* /lus/eagle/projects/RECUP/twang/trashbin/
-mv -f ${data_dir}/* /lus/eagle/projects/RECUP/twang/trashbin/
+rm -r ${exp_dir}
+rm -r ${data_dir}
 
 mkdir -p ${exp_dir}
 cd ${exp_dir}
@@ -43,8 +43,6 @@ cd ${exp_dir}
     mpiexec -n 1 --ppn 1 \
         --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads \
         python3 ${work_dir}/prepare_data_dir.py --seed ${seed}
-    
-    nthread=32
     
     echo "Logging: Start base simulation and merge!"
     start=$(date +%s%3N)
@@ -78,7 +76,7 @@ cd ${exp_dir}
 
     echo "Logging: Start training, phase 0"
     if [ -d ${shared_file_dir} ]; then
-        rm -r ${shared_file_dir} 
+        rm -r ${shared_file_dir}
     fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
@@ -94,11 +92,9 @@ cd ${exp_dir}
                                    --shared_file_dir ${shared_file_dir}
     echo "Logging: End training phase 0, $(( $(date +%s%3N) - ${start} )) milliseconds"
  
-    nthread=10
-    
     echo "Logging: Start study simulation and merge!"
     start=$(date +%s%3N)
-    mpiexec -n ${nthread} --ppn ${nthread} \
+    mpiexec -n ${nthread_study} --ppn ${nthread_study} \
         --depth=1 --cpu-bind depth --env OMP_NUM_THREADS=1 --env OMP_PLACES=threads \
         python ${exe_dir}/simulation_sweep.py \
                 ${num_sample} \
@@ -106,13 +102,11 @@ cd ${exp_dir}
                 ${data_dir}/study/config/config_1522004_trigonal.txt \
                 ${data_dir}/study/config/config_1531431_tetragonal.txt
  
-    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data cubic ${nthread}
-    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data trigonal ${nthread}
-    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data tetragonal ${nthread}
+    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data cubic ${nthread_study}
+    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data trigonal ${nthread_study}
+    mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads python ${exe_dir}/merge_preprocess_hdf5.py ${data_dir}/study/data tetragonal ${nthread_study}
     echo "Logging: End study simulation and merge, $(( $(date +%s%3N) - ${start} )) milliseconds"
    
-    nthread=32
-    
     echo "Logging: Start preprocessing study set"
     start=$(date +%s%3N)
     mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads \
@@ -154,7 +148,7 @@ cd ${exp_dir}
 
     echo "Logging: Start training, phase 1"
     if [ -d ${shared_file_dir} ]; then
-        rm -r ${shared_file_dir} 
+        rm -r ${shared_file_dir}
     fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
@@ -169,7 +163,7 @@ cd ${exp_dir}
                                    --data_dir ${data_dir} \
                                    --shared_file_dir ${shared_file_dir}
     echo "Logging: End training, phase 1, $(( $(date +%s%3N) - ${start} )) milliseconds"
-    
+ 
     echo "Logging: Start resample simulation and merge, second (stream), phase 1!"
     start=$(date +%s%3N)
     mpiexec -n ${nthread} --ppn ${nthread} \
@@ -193,7 +187,7 @@ cd ${exp_dir}
     mpiexec -n 1 --ppn 1 --depth=32 --cpu-bind depth --env OMP_NUM_THREADS=32 --env OMP_PLACES=threads \
         python ${exe_dir}/active_learning.py --seed $((${seed} + 4)) --num_new_sample ${num_al_sample} --policy uncertainty
     echo "Logging: End AL phase 1, $(( $(date +%s%3N) - ${start} )) milliseconds"
-
+ 
     echo "Logging: Start resample prepare, phase 2!"
     start=$(date +%s%3N)
     mpiexec -n ${nthread} --ppn ${nthread} \
@@ -223,7 +217,7 @@ cd ${exp_dir}
     
     echo "Logging: Start training, phase 2"
     if [ -d ${shared_file_dir} ]; then
-        rm -r ${shared_file_dir} 
+        rm -r ${shared_file_dir}
     fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
@@ -292,7 +286,7 @@ cd ${exp_dir}
 
     echo "Logging: Start training, phase 3"
     if [ -d ${shared_file_dir} ]; then
-        rm -r ${shared_file_dir} 
+        rm -r ${shared_file_dir}
     fi
     mkdir -p ${shared_file_dir}
     start=$(date +%s%3N)
