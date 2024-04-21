@@ -20,6 +20,7 @@ import util
 import compute_kernel as ker
 
 
+script_start_time = time.time()
 
 #----------------------Parser settings---------------------------
 print("Start setting parser!", flush=True)
@@ -244,17 +245,20 @@ for param_group in optimizer.param_groups:
     param_group['lr'] = args.lr
 scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer, lr_lambda)
 
+print_from_rank0("train script, before real train takes {}".format(time.time() - script_start_time))
+
 #------------------------------start training----------------------------------
 
 train_loss_list = []
 test_loss_list = []
 
-time_tot = time.time()
+time_real_train = time.time()
 best_loss = 99999999.9
 best_epoch = -1
 
 for epoch in range(0, args.epochs):
 
+    epoch_time_tot = time.time()
     ker.train(epoch, rank, size,
           model = model,
           optimizer = optimizer,
@@ -266,6 +270,9 @@ for epoch in range(0, args.epochs):
           log_interval = args.log_interval,
           loss_list = train_loss_list)
 
+    epoch_time = time.time()
+    print_from_rank0("epoch {}, train takes {}".format(epoch, epoch_time - epoch_time_tot))
+
     test_loss = ker.test(epoch, rank, size,
                      model = model, 
                      test_loader = test_loader,
@@ -273,6 +280,9 @@ for epoch in range(0, args.epochs):
                      on_gpu = args.cuda,
                      log_interval = args.log_interval,
                      loss_list = test_loss_list)
+
+    epoch_time = time.time() - epoch_time
+    print_from_rank0("epoch {}, test takes {}".format(epoch, epoch_time))
 
     if test_loss < best_loss:
         best_loss = test_loss
@@ -283,12 +293,15 @@ for epoch in range(0, args.epochs):
                 'optimizer_state_dict': optimizer.state_dict(),
             }
         print_from_rank0("Better model at epoch ", epoch)
+    
+    print_from_rank0("epoch {} takes {}".format(epoch, time.time() - epoch_time_tot))
+
 
 if rank == 0:
     torch.save(checkpoint, 'ckpt.pth')
 print_from_rank0("Best val loss = {} at epoch = {}".format(best_loss, best_epoch))
-time_tot = time.time() - time_tot
-print_from_rank0("Total training time = {}".format(time_tot))
+time_real_train = time.time() - time_real_train
+print_from_rank0("Total training time = {}".format(time_real_train))
 
 print_memory_usage_from_rank0("finish first training part")
 

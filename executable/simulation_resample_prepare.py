@@ -100,9 +100,9 @@ def create_all_samples(rank, size, seed_g,
     print("IMPORTANT: In resample, rank = {}, seed for create_all_samples = {}!!!".format(rank, seed_g))
 
     sample_cubic, sample_trigonal, sample_tetragonal = generate_gaussian_sample_separate(y_study, freq, 
-                                         std_dev_cubic = [0.01],
-                                         std_dev_trigonal = [0.005, 0.7], 
-                                         std_dev_tetragonal = [0.005, 0.005],
+                                         std_dev_cubic = [0.0001],
+                                         std_dev_trigonal = [0.002, 0.3], 
+                                         std_dev_tetragonal = [0.002, 0.002],
                                          do_print = do_print)
     sample_cubic      = _remove_out_of_box("cubic", sample_cubic, cubic_bounding_box, None)
     sample_trigonal   = _remove_out_of_box("trigonal", sample_trigonal, trigonal_bounding_box, alpha_diff_trigonal)
@@ -130,14 +130,14 @@ def main():
     trigonal_studyset = str(sys.argv[3])
     tetragonal_studyset = str(sys.argv[4])
 
-    a_min1 = 3.5
-    a_max1 = 4.5
-    a_min2 = 3.8
-    a_max2 = 4.2
-    alpha_min = 60.0
+    a_min1 = 2.5
+    a_max1 = 5.5
+    a_min2 = 3.5
+    a_max2 = 4.5
+    alpha_min = 30.0
     alpha_max = 119.5
-    c_min = 3.8005
-    c_max = 4.1995
+    c_min = 3.5005
+    c_max = 4.4995
 
     cubic_bounding_box = np.array([[a_min1, a_max1]])
     trigonal_bounding_box = np.array([[a_min2, a_max2], [alpha_min, alpha_max]])
