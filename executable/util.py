@@ -46,9 +46,9 @@ def create_numpy_data(file_cubic, file_trigonal, file_tetragonal):
     x = scaler_x.fit_transform(x.T).T
 
     y = np.concatenate([y_cubic, y_trigonal, y_tetragonal], axis=0)
-    y[:,0] = (y[:,0] - 3.8 )  / 0.4
-    y[:,1] = (y[:,1] - 3.8 )  / 0.4
-    y[:,2] = (y[:,2] - 60.0 ) / 60.0
+    y[:,0] = (y[:,0] - 3.5 )  / 1.0
+    y[:,1] = (y[:,1] - 3.5 )  / 1.0
+    y[:,2] = (y[:,2] - 30.0 ) / 90.0
 
     return x, y
 

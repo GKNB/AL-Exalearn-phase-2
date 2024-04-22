@@ -265,14 +265,14 @@ def main():
     conf_name_tetragonal = sys.argv[4]
 
 #FIXME
-    a_min1 = 3.5
-    a_max1 = 4.5
-    a_min2 = 3.8
-    a_max2 = 4.2
-    alpha_min = 60.0
+    a_min1 = 2.5
+    a_max1 = 5.5
+    a_min2 = 3.5
+    a_max2 = 4.5
+    alpha_min = 30.0
     alpha_max = 119.5
-    c_min = 3.8005
-    c_max = 4.1995
+    c_min = 3.5005
+    c_max = 4.4995
 
     cubic_bounding_box = np.array([[a_min1, a_max1]])
     trigonal_bounding_box = np.array([[a_min2, a_max2], [alpha_min, alpha_max]])

@@ -30,20 +30,29 @@ def get_freq(args, do_print = True):
         y_pred_torch_class, y_pred_torch_regression = model(x_study_torch)
     
     y_pred_np = y_pred_torch_regression.detach().numpy().reshape(-1, 4)
+    print("sum of y_pred_np[:,3] = ", np.sum(y_pred_np[:,3]))
     w_reg = np.exp(y_pred_np[:,3])
     w_reg = w_reg.astype(np.float64)
     w_reg = w_reg / np.sum(w_reg)
-    prob = torch.nn.functional.softmax(y_pred_torch_class, dim=1)
-    entropy = -torch.sum(prob * torch.log(prob), dim=1).detach().numpy()
+    print("sum of y_pred_torch_class = ", np.sum(y_pred_torch_class.detach().numpy()))
+    prob = torch.nn.functional.softmax(y_pred_torch_class, dim=1).detach().numpy()
+    smallest_positive = np.min(prob[prob > 0])
+    prob[prob <= 0] = smallest_positive
+    print("has zero = ", np.any(prob == 0))
+    print("has negative = ", np.any(prob < 0))
+    print("has positive = ", np.any(prob > 0))
+    entropy = -np.sum(prob * np.log(prob), axis=1)
+    print("sum of entropy = ", np.sum(entropy))
     w_class = entropy / np.sum(entropy)
 
     w = 0.5 * w_reg + 0.5 * w_class
+    print(np.sum(w))
     freq = np.random.multinomial(args.num_new_sample, w)
     
     if do_print:
         with np.printoptions(threshold=np.inf):
             print("logits = ", y_pred_torch_class.numpy())
-            print("prob = ", prob.numpy())
+            print("prob = ", prob)
             print("entropy = ", entropy)
             print("logsig2 = ", y_pred_np[:,3])
             print("sig2 after norm = ", w_reg)
