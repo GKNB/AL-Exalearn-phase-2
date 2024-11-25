@@ -39,10 +39,6 @@ parser.add_argument('--log_interval',   type=int,   default=1,
                     help='how many batches to wait before logging training status')
 parser.add_argument('--device',         default='cpu', choices=['cpu', 'gpu'],
                     help='Whether this is running on cpu or gpu')
-parser.add_argument('--ntrain',         type=float, default=2000,
-                    help='number of training samples (default: 2000)')
-parser.add_argument('--ntest',          type=float, default=1000,
-                    help='number of test samples (default: 500)')
 parser.add_argument('--num_workers',    type=int,   default=1, 
                     help='set the number of op workers. only work for gpu')
 parser.add_argument('--num_threads',    type=int,   default=8, 
@@ -50,7 +46,7 @@ parser.add_argument('--num_threads',    type=int,   default=8,
 parser.add_argument('--phase_idx',      type=int, required=True,
                     help='which AL phase we are in. This is one-indexed! In other word, AL start with 1, no AL is 0')
 parser.add_argument('--data_dir',       type=str,   default='./',
-                    help='root directory of base/test/study/AL subdir')
+                    help='root directory of base/test/validation/study/AL subdir')
 parser.add_argument('--shared_file_dir',    type=str,   required=True,
                     help='a directory which saves sharedfile for DDP. It must be empty before running this script')
 parser.add_argument('--do_streaming', action='store_true',
@@ -124,12 +120,18 @@ base_tetragonal_file  = os.path.join(args.data_dir, "base/data/tetragonal_153143
 test_cubic_file       = os.path.join(args.data_dir, "test/data/cubic_1001460_cubic.hdf5")
 test_trigonal_file    = os.path.join(args.data_dir, "test/data/trigonal_1522004_trigonal.hdf5")
 test_tetragonal_file  = os.path.join(args.data_dir, "test/data/tetragonal_1531431_tetragonal.hdf5")
+val_cubic_file       = os.path.join(args.data_dir, "validation/data/cubic_1001460_cubic.hdf5")
+val_trigonal_file    = os.path.join(args.data_dir, "validation/data/trigonal_1522004_trigonal.hdf5")
+val_tetragonal_file  = os.path.join(args.data_dir, "validation/data/tetragonal_1531431_tetragonal.hdf5")
 
-x_train,  y_train  = util.create_numpy_data(base_cubic_file, base_trigonal_file,  base_tetragonal_file)
-x_test,  y_test  = util.create_numpy_data(test_cubic_file, test_trigonal_file,  test_tetragonal_file)
+x_train, y_train  = util.create_numpy_data(base_cubic_file, base_trigonal_file,  base_tetragonal_file)
+x_val,   y_val    = util.create_numpy_data(val_cubic_file,  val_trigonal_file,   val_tetragonal_file)
+x_test,  y_test   = util.create_numpy_data(test_cubic_file, test_trigonal_file,  test_tetragonal_file)
 
 print_from_rank0("x_train.shape = ", x_train.shape)
 print_from_rank0("y_train.shape = ", y_train.shape)
+print_from_rank0("x_val.shape = ", x_val.shape)
+print_from_rank0("y_val.shape = ", y_val.shape)
 print_from_rank0("x_test.shape = ", x_test.shape)
 print_from_rank0("y_test.shape = ", y_test.shape)
 
@@ -159,6 +161,17 @@ test_loader = torch.utils.data.DataLoader(
     test_dataset, batch_size=args.batch_size, sampler=test_sampler, drop_last=True, **kwargs)
 print_from_rank0("x_test_torch.shape = ", x_test_torch.shape)
 print_from_rank0("y_test_torch.shape = ", y_test_torch.shape)
+
+x_val_torch = torch.from_numpy(x_val).float()
+x_val_torch = x_val_torch.reshape((x_val_torch.shape[0], 1, x_val_torch.shape[1]))
+y_val_torch = torch.from_numpy(y_val).float()
+val_dataset = torch.utils.data.TensorDataset(x_val_torch, y_val_torch)
+val_sampler = torch.utils.data.distributed.DistributedSampler(
+    val_dataset, num_replicas=size, rank=rank, drop_last=True)
+val_loader = torch.utils.data.DataLoader(
+    val_dataset, batch_size=args.batch_size, sampler=val_sampler, drop_last=True, **kwargs)
+print_from_rank0("x_val_torch.shape = ", x_val_torch.shape)
+print_from_rank0("y_val_torch.shape = ", y_val_torch.shape)
 
 print_memory_usage_from_rank0("Finish creating torch dataset and loader!")
 
@@ -252,11 +265,12 @@ print_from_rank0("train script, before real train takes {}".format(time.time() -
 #------------------------------start training----------------------------------
 
 train_loss_list = []
-test_loss_list = []
+val_loss_list = []
 
 time_real_train = time.time()
 best_loss = 99999999.9
 best_epoch = -1
+best_checkpoint = None
 
 for epoch in range(0, args.epochs):
 
@@ -275,32 +289,32 @@ for epoch in range(0, args.epochs):
     epoch_time = time.time()
     print_from_rank0("epoch {}, train takes {}".format(epoch, epoch_time - epoch_time_tot))
 
-    test_loss = ker.test(epoch, rank, size,
-                     model = model, 
-                     test_loader = test_loader,
-                     criterion_reg = criterion_reg, criterion_class = criterion_class,
-                     on_gpu = args.cuda,
-                     log_interval = args.log_interval,
-                     loss_list = test_loss_list)
+    val_loss = ker.test(epoch, rank, size,
+                        model = model, 
+                        test_loader = val_loader,
+                        criterion_reg = criterion_reg, criterion_class = criterion_class,
+                        on_gpu = args.cuda,
+                        log_interval = args.log_interval,
+                        loss_list = val_loss_list)
 
     epoch_time = time.time() - epoch_time
-    print_from_rank0("epoch {}, test takes {}".format(epoch, epoch_time))
+    print_from_rank0("epoch {}, validation takes {}".format(epoch, epoch_time))
 
-    if test_loss < best_loss:
-        best_loss = test_loss
+    if val_loss < best_loss:
+        best_loss = val_loss
         best_epoch = epoch
         if rank == 0:
             checkpoint = {
                 'model_state_dict': model.state_dict(),
                 'optimizer_state_dict': optimizer.state_dict(),
             }
+            best_checkpoint = copy.deepcopy(checkpoint)
         print_from_rank0("Better model at epoch ", epoch)
 
     print_from_rank0("epoch {} takes {}".format(epoch, time.time() - epoch_time_tot))
 
-
 if rank == 0:
-    torch.save(checkpoint, 'ckpt.pth')
+    torch.save(best_checkpoint, 'ckpt.pth')
 print_from_rank0("Best val loss = {} at epoch = {}".format(best_loss, best_epoch))
 time_real_train = time.time() - time_real_train
 print_from_rank0("Total training time = {}".format(time_real_train))
@@ -315,7 +329,7 @@ if args.cuda:
 checkpoint = torch.load('ckpt.pth')
 model.load_state_dict(checkpoint['model_state_dict'])
 criterion_l2 = torch.nn.MSELoss()
-print_memory_usage_from_rank0("finish loading from disk for validation")
+print_memory_usage_from_rank0("finish loading from disk for testing")
 
 l2_diff, sigma2, class_loss = ker.validation(rank, size, 
                                              model = model, 
@@ -323,6 +337,6 @@ l2_diff, sigma2, class_loss = ker.validation(rank, size,
                                              criterion_reg = criterion_l2, criterion_class = criterion_class,
                                              on_gpu = args.cuda)
 
-print_from_rank0("Final validation time = {}".format(time.time() - st))
+print_from_rank0("Final testing time = {}".format(time.time() - st))
 
 torch.distributed.destroy_process_group()

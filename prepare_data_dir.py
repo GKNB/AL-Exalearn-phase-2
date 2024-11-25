@@ -8,7 +8,7 @@ args = parser.parse_args()
 seed = args.seed
 
 root_dir = "/lus/eagle/projects/RECUP/twang/exalearn_stage2/data/"
-dir_list = ["base", "test", "study", "stream_phase_1", "stream_phase_2", "AL_phase_1", "AL_phase_2", "AL_phase_3"]
+dir_list = ["base", "validation", "test", "study", "stream_phase_1", "stream_phase_2", "AL_phase_1", "AL_phase_2", "AL_phase_3"]
 config_list = ["config_1001460_cubic.txt", "config_1522004_trigonal.txt", "config_1531431_tetragonal.txt"] 
 
 cubic_config = """[Global_Params]
