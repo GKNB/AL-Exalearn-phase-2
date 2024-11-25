@@ -53,7 +53,8 @@ parser.add_argument('--data_dir',       type=str,   default='./',
                     help='root directory of base/test/study/AL subdir')
 parser.add_argument('--shared_file_dir',    type=str,   required=True,
                     help='a directory which saves sharedfile for DDP. It must be empty before running this script')
-
+parser.add_argument('--do_streaming', action='store_true',
+                    help='Enable streaming mode')
 
 args = parser.parse_args()
 args.cuda = ( args.device.find("gpu")!=-1 and torch.cuda.is_available() )
@@ -123,29 +124,16 @@ base_tetragonal_file  = os.path.join(args.data_dir, "base/data/tetragonal_153143
 test_cubic_file       = os.path.join(args.data_dir, "test/data/cubic_1001460_cubic.hdf5")
 test_trigonal_file    = os.path.join(args.data_dir, "test/data/trigonal_1522004_trigonal.hdf5")
 test_tetragonal_file  = os.path.join(args.data_dir, "test/data/tetragonal_1531431_tetragonal.hdf5")
-study_cubic_file      = os.path.join(args.data_dir, "study/data/cubic_1001460_cubic.hdf5")
-study_trigonal_file   = os.path.join(args.data_dir, "study/data/trigonal_1522004_trigonal.hdf5")
-study_tetragonal_file = os.path.join(args.data_dir, "study/data/tetragonal_1531431_tetragonal.hdf5")
 
 x_train,  y_train  = util.create_numpy_data(base_cubic_file, base_trigonal_file,  base_tetragonal_file)
 x_test,  y_test  = util.create_numpy_data(test_cubic_file, test_trigonal_file,  test_tetragonal_file)
-x_study, y_study = util.create_numpy_data(study_cubic_file, study_trigonal_file, study_tetragonal_file)
 
 print_from_rank0("x_train.shape = ", x_train.shape)
 print_from_rank0("y_train.shape = ", y_train.shape)
 print_from_rank0("x_test.shape = ", x_test.shape)
 print_from_rank0("y_test.shape = ", y_test.shape)
-print_from_rank0("x_study.shape = ", x_study.shape)
-print_from_rank0("y_study.shape = ", y_study.shape)
 
 print_memory_usage_from_rank0("Finish loading data!")
-
-x_study_torch = torch.from_numpy(x_study).float()
-x_study_torch = x_study_torch.reshape((x_study_torch.shape[0], 1, x_study_torch.shape[1]))
-y_study_torch = torch.from_numpy(y_study).float()
-print_from_rank0("x_study_torch.shape = ", x_study_torch.shape)
-print_from_rank0("y_study_torch.shape = ", y_study_torch.shape)
-torch.save(x_study_torch, "x_study_torch.pt")
 
 kwargs = {'num_workers': args.num_workers, 'pin_memory': True} if args.cuda else {}
 
@@ -230,6 +218,16 @@ if args.phase_idx > 0:
         x_AL_list.append(x_AL_temp)
         y_AL_list.append(y_AL_temp)
 
+#In streaming execution, we not only need AL data, but also streaming data stream_1 upto stream_k-1
+    if args.do_streaming:
+        for i in range(1, args.phase_idx):
+            stream_cubic_file      = os.path.join(args.data_dir, "stream_phase_{}/data/cubic_1001460_cubic.hdf5".format(i))
+            stream_trigonal_file   = os.path.join(args.data_dir, "stream_phase_{}/data/trigonal_1522004_trigonal.hdf5".format(i))
+            stream_tetragonal_file = os.path.join(args.data_dir, "stream_phase_{}/data/tetragonal_1531431_tetragonal.hdf5".format(i))
+            x_AL_temp, y_AL_temp = util.create_numpy_data(stream_cubic_file, stream_trigonal_file, stream_tetragonal_file)
+            x_AL_list.append(x_AL_temp)
+            y_AL_list.append(y_AL_temp)
+
     for i in range(len(x_AL_list)):
         x_train_torch = torch.cat((x_train_torch, torch.from_numpy(x_AL_list[i]).float().reshape((x_AL_list[i].shape[0], 1, x_AL_list[i].shape[1]))), axis=0)
         y_train_torch = torch.cat((y_train_torch, torch.from_numpy(y_AL_list[i]).float()), axis=0)
@@ -299,6 +297,7 @@ for epoch in range(0, args.epochs):
         print_from_rank0("Better model at epoch ", epoch)
 
     print_from_rank0("epoch {} takes {}".format(epoch, time.time() - epoch_time_tot))
+
 
 if rank == 0:
     torch.save(checkpoint, 'ckpt.pth')
